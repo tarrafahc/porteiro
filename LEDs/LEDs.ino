@@ -25,7 +25,7 @@ extern PROGMEM uint8_t fonte[0x100][7];
     ligar_bit(_##CI##_clk);         \
 } while (0)
 
-static uint8_t text_buf[11] = {0};
+static uint8_t text_buf[10] = {0};
 static uint8_t out_buf[7][7] = {{0}}; /* [linha][50 bits] */
 
 static void
@@ -69,7 +69,6 @@ void loop()
         text_buf[0] = c;
         for (uint8_t i = 0; i < 10; i++)
             print_char(text_buf[i], (9-i)*5);
-        Serial.println((char*) text_buf);
     }
     desligar_bit(_4015_mr);
     for (uint8_t i = 0; i < 7; i++) {
