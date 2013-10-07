@@ -73,13 +73,8 @@ void loop()
     desligar_bit(_4015_mr);
     for (uint8_t i = 0; i < 7; i++) {
         desligar_bit(_4094_str);
-        for (uint8_t j = 0; j < 8; j++) clk_d(4094, ((out_buf[i][0]>>j)&1));
-        for (uint8_t j = 0; j < 8; j++) clk_d(4094, ((out_buf[i][1]>>j)&1));
-        for (uint8_t j = 0; j < 8; j++) clk_d(4094, ((out_buf[i][2]>>j)&1));
-        for (uint8_t j = 0; j < 8; j++) clk_d(4094, ((out_buf[i][3]>>j)&1));
-        for (uint8_t j = 0; j < 8; j++) clk_d(4094, ((out_buf[i][4]>>j)&1));
-        for (uint8_t j = 0; j < 8; j++) clk_d(4094, ((out_buf[i][5]>>j)&1));
-        for (uint8_t j = 0; j < 2; j++) clk_d(4094, ((out_buf[i][6]>>j)&1));
+        for (uint8_t j = 0; j < 50; j++)
+            clk_d(4094, ((out_buf[i][j>>3]>>(j&7))&1));
 
         desligar_bit(_4094_oe);
         ligar_bit(_4094_str);
