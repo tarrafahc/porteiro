@@ -1,4 +1,10 @@
-#include <Arduino.h>
+#define F_CPU 16000000
+#define BAUD  9600
+
+#define MYUBRR (F_CPU/16/BAUD-1)
+
+#include <avr/io.h>
+#include <avr/interrupt.h>
 #include <avr/pgmspace.h>
 
 #define _4015_d     0 /* marrom branco     */
@@ -51,27 +57,67 @@ print_char(uint8_t c, uint8_t pos)
     }
 }
 
-void setup()
+static void
+init_serial()
 {
-    Serial.begin(9600);
-    DDRC = 0x3F;
-    ligar_bit(_4094_oe);
+    UBRR0H = MYUBRR >> 8;
+    UBRR0L = MYUBRR;
+    UCSR0C = (1 << UCSZ00) | (1 << UCSZ01); /* 8-bit */
+    /* enable rx, tx, and USART_RX interrupt */
+    UCSR0B = (1 << RXEN0 ) | (1 << TXEN0 ) | (1 << RXCIE0);
 }
 
+static void
+init_timer()
+{
+    /* timer0 = main timer */
+    TCCR0A = 0;                         /* normal port operation */
+    TCCR0B = (1 << CS01) | (1 << CS00); /* prescaler = 64 */
+    TIFR0  = (1 << TOV0);               /* clear pending interrupts */
+    TIMSK0 = (1 << TOIE0);              /* enable TIMER0_OVF interrupt */
+}
+
+void loop();
+
+void main(void) __attribute__((noreturn));
+void main()
+{
+    init_serial();
+    init_timer();
+    sei();  /* enable interrupts */
+    DDRC = 0x3F;
+    desligar_bit(_4015_mr);
+    ligar_bit(_4094_oe);
+    while(1)
+        loop();
+}
+
+static uint8_t new_char = 0;
 static uint8_t red   = 1;
 static uint8_t green = 0;
 
-void loop()
+/* usart rx interrupt */
+ISR(USART_RX_vect)
 {
-    if (Serial.available()) {
-        text_buf[text_idx++] = Serial.read();
+        text_buf[text_idx++] = UDR0;
         if (text_idx == 10)
             text_idx = 0;
+    new_char = 1;
+}
+
+void loop()
+{
+    if (new_char) {
+        new_char = 0;
         for (uint8_t i = 0; i < 10; i++)
             print_char(text_buf[i], i*5);
     }
-    desligar_bit(_4015_mr);
-    for (uint8_t i = 0; i < 7; i++) {
+}
+
+/* main timer interrupt */
+ISR(TIMER0_OVF_vect)
+{
+    static uint8_t i = 0;
         desligar_bit(_4094_str);
         for (uint8_t j = 0; j < 50; j++)
             clk_d(4094, ((out_buf[i][j>>3]>>(j&7))&1));
@@ -84,8 +130,6 @@ void loop()
         }
         clk_d(4015, 0);
         ligar_bit(_4094_oe);
-        delayMicroseconds(1500);
-    }
-    ligar_bit(_4015_mr);
+    if (++i == 7)
+        i = 0;
 }
-
