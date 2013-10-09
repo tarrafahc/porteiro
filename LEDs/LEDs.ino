@@ -26,6 +26,7 @@ extern PROGMEM uint8_t fonte[0x100][7];
 } while (0)
 
 static uint8_t text_buf[10] = {0};
+static uint8_t text_idx     =  0 ;
 static uint8_t out_buf[7][7] = {{0}}; /* [linha][50 bits] */
 
 static void
@@ -63,12 +64,11 @@ static uint8_t green = 0;
 void loop()
 {
     if (Serial.available()) {
-        uint8_t c = Serial.read();
-        for (uint8_t i = 9; i; i--)
-            text_buf[i] = text_buf[i-1];
-        text_buf[0] = c;
+        text_buf[text_idx++] = Serial.read();
+        if (text_idx == 10)
+            text_idx = 0;
         for (uint8_t i = 0; i < 10; i++)
-            print_char(text_buf[i], (9-i)*5);
+            print_char(text_buf[i], i*5);
     }
     desligar_bit(_4015_mr);
     for (uint8_t i = 0; i < 7; i++) {
