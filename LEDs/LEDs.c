@@ -88,22 +88,13 @@ void main()
     DDRC = 0x3F;
     desligar_bit(_4015_mr);
     ligar_bit(_4094_oe);
-    while(1)
+    while (1)
         loop();
 }
 
 static uint8_t new_char = 0;
 static uint8_t red   = 1;
 static uint8_t green = 0;
-
-/* usart rx interrupt */
-ISR(USART_RX_vect)
-{
-        text_buf[text_idx++] = UDR0;
-        if (text_idx == 10)
-            text_idx = 0;
-    new_char = 1;
-}
 
 void loop()
 {
@@ -118,18 +109,26 @@ void loop()
 ISR(TIMER0_OVF_vect)
 {
     static uint8_t i = 0;
-        desligar_bit(_4094_str);
-        for (uint8_t j = 0; j < 50; j++)
-            clk_d(4094, ((out_buf[i][j>>3]>>(j&7))&1));
-
-        desligar_bit(_4094_oe);
-        ligar_bit(_4094_str);
-        for (uint8_t j = 0; j < 7; j++) {
-            clk_d(4015, (j==i)&red  );
-            clk_d(4015, (j==i)&green);
-        }
-        clk_d(4015, 0);
-        ligar_bit(_4094_oe);
+    desligar_bit(_4094_str);
+    for (uint8_t j = 0; j < 50; j++)
+        clk_d(4094, ((out_buf[i][j>>3]>>(j&7))&1));
+    desligar_bit(_4094_oe);
+    ligar_bit(_4094_str);
+    for (uint8_t j = 0; j < 7; j++) {
+        clk_d(4015, (j==i)&red  );
+        clk_d(4015, (j==i)&green);
+    }
+    clk_d(4015, 0);
+    ligar_bit(_4094_oe);
     if (++i == 7)
         i = 0;
+}
+
+/* usart rx interrupt */
+ISR(USART_RX_vect)
+{
+    text_buf[text_idx++] = UDR0;
+    if (text_idx == 10)
+        text_idx = 0;
+    new_char = 1;
 }
