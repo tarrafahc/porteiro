@@ -109,7 +109,7 @@ void main()
 static uint8_t red   = 1;
 static uint8_t green = 0;
 
-/* main timer interrupt */
+/* main timer interrupt: F_CPU / (256 * 64) = 976.5625 Hz, 1.024 ms */
 ISR(TIMER0_OVF_vect)
 {
     static uint8_t i = 0;
