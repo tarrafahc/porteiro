@@ -7,29 +7,34 @@
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
 
-#define _4015_d     0 /* marrom branco     */
-#define _4015_clk   1 /* verde  branco     */
-#define _4015_mr    4 /* azul              */
+struct pino {
+    volatile uint8_t *dir;
+    volatile uint8_t *port;
+    uint8_t bit;
+};
 
-#define _4094_clk   2 /* marrom            */
-#define _4094_str   3 /* azul   branco     */
-#define _4094_d     0 /* marrom branco [2] */
-#define _4094_oe    5 /* verde             */
+static const struct pino _4015_d   = { &DDRB, &PORTB, 0 }; /* marrom branco     */
+static const struct pino _4015_clk = { &DDRD, &PORTD, 7 }; /* verde  branco     */
+static const struct pino _4015_mr  = { &DDRD, &PORTD, 4 }; /* azul              */
+
+static const struct pino _4094_clk = { &DDRD, &PORTD, 6 }; /* marrom            */
+static const struct pino _4094_str = { &DDRD, &PORTD, 5 }; /* azul   branco     */
+static const struct pino _4094_d   = { &DDRB, &PORTB, 0 }; /* marrom branco [2] */
+static const struct pino _4094_oe  = { &DDRD, &PORTD, 3 }; /* verde             */
+
+static inline void set_output  (const struct pino *p) { *p->dir  |=  (1<<p->bit); }
+static inline void set_input   (const struct pino *p) { *p->dir  &= ~(1<<p->bit); }
+static inline void ligar_bit   (const struct pino *p) { *p->port |=  (1<<p->bit); }
+static inline void desligar_bit(const struct pino *p) { *p->port &= ~(1<<p->bit); }
+static inline void clk_d       (const struct pino *clk, const struct pino *d, uint8_t val)
+{
+    desligar_bit(clk);
+    if (val) ligar_bit(d);
+    else  desligar_bit(d);
+    ligar_bit(clk);
+}
 
 extern PROGMEM uint8_t fonte[0x100][7];
-
-#define ligar_bit(bit) do {         \
-    PORTC |=  (1<<bit);             \
-} while (0)
-#define desligar_bit(bit) do {      \
-    PORTC &= ~(1<<bit);             \
-} while (0)
-#define clk_d(CI, val) do {         \
-    desligar_bit(_##CI##_clk);      \
-    if (val) ligar_bit(_##CI##_d);  \
-    else  desligar_bit(_##CI##_d);  \
-    ligar_bit(_##CI##_clk);         \
-} while (0)
 
 static uint8_t text_buf[10] = {0};
 static uint8_t text_idx     =  0 ;
@@ -86,11 +91,16 @@ void main()
     init_timer();
     sei();  /* enable interrupts */
 
-    /* all output: d, 4015_clk, 4094_clk, 4094_str, 4015_mr, 4094_oe */
-    DDRC = (1<<0) | (1<<1) | (1<<2) | (1<<3) | (1<<4) | (1<<5);
+    set_output(&_4015_d  );
+    set_output(&_4015_clk);
+    set_output(&_4015_mr );
+    set_output(&_4094_clk);
+    set_output(&_4094_str);
+    set_output(&_4094_d  );
+    set_output(&_4094_oe );
 
-    desligar_bit(_4015_mr);
-    ligar_bit(_4094_oe);
+    desligar_bit(&_4015_mr);
+    ligar_bit(&_4094_oe);
     while (1)
         loop();
 }
@@ -112,17 +122,17 @@ void loop()
 ISR(TIMER0_OVF_vect)
 {
     static uint8_t i = 0;
-    desligar_bit(_4094_str);
+    desligar_bit(&_4094_str);
     for (uint8_t j = 0; j < 50; j++)
-        clk_d(4094, ((out_buf[i][j>>3]>>(j&7))&1));
-    desligar_bit(_4094_oe);
-    ligar_bit(_4094_str);
+        clk_d(&_4094_clk, &_4094_d, ((out_buf[i][j>>3]>>(j&7))&1));
+    desligar_bit(&_4094_oe);
+    ligar_bit(&_4094_str);
     for (uint8_t j = 0; j < 7; j++) {
-        clk_d(4015, (j==i)&red  );
-        clk_d(4015, (j==i)&green);
+        clk_d(&_4015_clk, &_4015_d, (j==i)&red  );
+        clk_d(&_4015_clk, &_4015_d, (j==i)&green);
     }
-    clk_d(4015, 0);
-    ligar_bit(_4094_oe);
+    clk_d(&_4015_clk, &_4015_d, 0);
+    ligar_bit(&_4094_oe);
     if (++i == 7)
         i = 0;
 }
