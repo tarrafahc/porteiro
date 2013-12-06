@@ -36,9 +36,8 @@ static inline void clk_d       (const struct pino *clk, const struct pino *d, ui
 
 extern PROGMEM uint8_t fonte[0x100][7];
 
-static uint8_t text_buf[10] = {0};
-static uint8_t text_idx     =  0 ;
 static uint8_t out_buf[7][7] = {{0}}; /* [linha][50 bits] */
+static uint8_t out_idx       =   0  ;
 
 static void
 print_char(uint8_t c, uint8_t pos)
@@ -82,14 +81,8 @@ init_timer()
     TIMSK0 = (1 << TOIE0);              /* enable TIMER0_OVF interrupt */
 }
 
-static volatile uint8_t new_char = 0;
 static void loop()
 {
-    if (new_char) {
-        new_char = 0;
-        for (uint8_t i = 0; i < 10; i++)
-            print_char(text_buf[i], i*5);
-    }
 }
 
 void main(void) __attribute__((noreturn));
@@ -138,8 +131,7 @@ ISR(TIMER0_OVF_vect)
 /* usart rx interrupt */
 ISR(USART_RX_vect)
 {
-    text_buf[text_idx++] = UDR0;
-    if (text_idx == 10)
-        text_idx = 0;
-    new_char = 1;
+    print_char(UDR0, out_idx++ * 5);
+    if (out_idx == 10)
+        out_idx = 0;
 }
