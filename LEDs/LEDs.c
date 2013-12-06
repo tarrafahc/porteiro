@@ -85,7 +85,10 @@ void main()
     init_serial();
     init_timer();
     sei();  /* enable interrupts */
-    DDRC = 0x3F;
+
+    /* all output: d, 4015_clk, 4094_clk, 4094_str, 4015_mr, 4094_oe */
+    DDRC = (1<<0) | (1<<1) | (1<<2) | (1<<3) | (1<<4) | (1<<5);
+
     desligar_bit(_4015_mr);
     ligar_bit(_4094_oe);
     while (1)
