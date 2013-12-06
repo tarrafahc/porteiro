@@ -82,7 +82,15 @@ init_timer()
     TIMSK0 = (1 << TOIE0);              /* enable TIMER0_OVF interrupt */
 }
 
-void loop();
+static volatile uint8_t new_char = 0;
+static void loop()
+{
+    if (new_char) {
+        new_char = 0;
+        for (uint8_t i = 0; i < 10; i++)
+            print_char(text_buf[i], i*5);
+    }
+}
 
 void main(void) __attribute__((noreturn));
 void main()
@@ -105,18 +113,8 @@ void main()
         loop();
 }
 
-static uint8_t new_char = 0;
 static uint8_t red   = 1;
 static uint8_t green = 0;
-
-void loop()
-{
-    if (new_char) {
-        new_char = 0;
-        for (uint8_t i = 0; i < 10; i++)
-            print_char(text_buf[i], i*5);
-    }
-}
 
 /* main timer interrupt */
 ISR(TIMER0_OVF_vect)
