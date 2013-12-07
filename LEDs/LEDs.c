@@ -6,26 +6,35 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
+#include <avr/eeprom.h>
 
 struct pino {
     volatile uint8_t *dir;
+    volatile uint8_t *pin;
     volatile uint8_t *port;
     uint8_t bit;
 };
 
-static const struct pino _4015_d   = { &DDRB, &PORTB, 0 }; /* marrom branco     */
-static const struct pino _4015_clk = { &DDRD, &PORTD, 7 }; /* verde  branco     */
-static const struct pino _4015_mr  = { &DDRD, &PORTD, 4 }; /* azul              */
+static const struct pino _4015_d   = { &DDRB, &PINB, &PORTB, 0 }; /* marrom branco     */
+static const struct pino _4015_clk = { &DDRD, &PIND, &PORTD, 7 }; /* verde  branco     */
+static const struct pino _4015_mr  = { &DDRD, &PIND, &PORTD, 4 }; /* azul              */
 
-static const struct pino _4094_clk = { &DDRD, &PORTD, 6 }; /* marrom            */
-static const struct pino _4094_str = { &DDRD, &PORTD, 5 }; /* azul   branco     */
-static const struct pino _4094_d   = { &DDRB, &PORTB, 0 }; /* marrom branco [2] */
-static const struct pino _4094_oe  = { &DDRD, &PORTD, 3 }; /* verde             */
+static const struct pino _4094_clk = { &DDRD, &PIND, &PORTD, 6 }; /* marrom            */
+static const struct pino _4094_str = { &DDRD, &PIND, &PORTD, 5 }; /* azul   branco     */
+static const struct pino _4094_d   = { &DDRB, &PINB, &PORTB, 0 }; /* marrom branco [2] */
+static const struct pino _4094_oe  = { &DDRD, &PIND, &PORTD, 3 }; /* verde             */
+
+static const struct pino botao     = { &DDRD, &PIND, &PORTD, 2 }; /* botao             */
+static const struct pino botao_led = { &DDRC, &PINC, &PORTC, 5 }; /* led do botao      */
+
+static const struct pino rele_1    = { &DDRB, &PINB, &PORTB, 4 }; /* rele 1            */
+static const struct pino rele_2    = { &DDRB, &PINB, &PORTB, 5 }; /* rele 2            */
 
 static inline void set_output  (const struct pino *p) { *p->dir  |=  (1<<p->bit); }
 static inline void set_input   (const struct pino *p) { *p->dir  &= ~(1<<p->bit); }
 static inline void ligar_bit   (const struct pino *p) { *p->port |=  (1<<p->bit); }
 static inline void desligar_bit(const struct pino *p) { *p->port &= ~(1<<p->bit); }
+static inline uint8_t ler_bit  (const struct pino *p) { return *p->pin & (1<<p->bit); }
 static inline void clk_d       (const struct pino *clk, const struct pino *d, uint8_t val)
 {
     desligar_bit(clk);
@@ -34,9 +43,9 @@ static inline void clk_d       (const struct pino *clk, const struct pino *d, ui
     ligar_bit(clk);
 }
 
-static const struct pino pino_r = { &DDRB, &PORTB, 1 }; /* led vermelho      */
-static const struct pino pino_g = { &DDRB, &PORTB, 3 }; /* led verde         */
-static const struct pino pino_b = { &DDRB, &PORTB, 2 }; /* led azul          */
+static const struct pino pino_r = { &DDRB, &PINB, &PORTB, 1 }; /* led vermelho      */
+static const struct pino pino_g = { &DDRB, &PINB, &PORTB, 3 }; /* led verde         */
+static const struct pino pino_b = { &DDRB, &PINB, &PORTB, 2 }; /* led azul          */
 static volatile uint8_t *led_r  = &OCR1AL;              /* led vermelho      */
 static volatile uint8_t *led_g  = &OCR2A ;              /* led verde         */
 static volatile uint8_t *led_b  = &OCR1BL;              /* led azul          */
@@ -80,6 +89,13 @@ print_char(uint8_t c, uint8_t pos)
 }
 
 static void
+init_button()
+{
+    EICRA = (1 << ISC01); /* falling edge */
+    EIMSK = (1 << INT0);
+}
+
+static void
 init_serial()
 {
     UBRR0H = MYUBRR >> 8;
@@ -117,9 +133,12 @@ static void loop()
 {
 }
 
+static uint8_t status = 0;
+
 void main(void) __attribute__((noreturn));
 void main()
 {
+    init_button();
     init_serial();
     init_timer();
     init_pwm();
@@ -137,6 +156,12 @@ void main()
     set_output(&pino_g);
     set_output(&pino_b);
 
+    set_input (&botao    );
+    set_output(&botao_led);
+
+    set_output(&rele_1);
+    set_output(&rele_2);
+
     desligar_bit(&_4015_mr);
     ligar_bit(&_4094_oe);
     while (1)
@@ -146,9 +171,47 @@ void main()
 static uint8_t red   = 1;
 static uint8_t green = 0;
 
+static uint16_t turnoff_count = 0;
+static uint8_t debounce_count = 0;
+
 /* main timer interrupt: F_CPU / (256 * 64) = 976.5625 Hz, 1.024 ms */
 ISR(TIMER0_OVF_vect)
 {
+    if (debounce_count) {
+        debounce_count--;
+        if (!debounce_count && ler_bit(&botao)) {
+            /* 51.2 ms debounce */
+            status = !status;
+            if (!status) {
+                desligar_bit(&botao_led);
+                *led_r = 255;
+                *led_g = 255;
+                *led_b = 255;
+                turnoff_count = 0xffff;
+            } else {
+                ligar_bit(&botao_led);
+                ligar_bit(&rele_1);
+                ligar_bit(&rele_2);
+            }
+            UDR0 = status + '0';
+        }
+    }
+
+    if (!status) {
+        if (turnoff_count) {
+            turnoff_count--;
+            if (!turnoff_count) {
+                /* 67.10784s delay */
+                desligar_bit(&rele_1);
+                desligar_bit(&rele_2);
+                *led_r = 0;
+                *led_g = 0;
+                *led_b = 0;
+            }
+        }
+        return;
+    }
+
     static uint8_t led_count = 0;
 
     if (++led_count == 10) {
@@ -188,4 +251,10 @@ ISR(USART_RX_vect)
     print_char(UDR0, out_idx++ * 5);
     if (out_idx == 10)
         out_idx = 0;
+}
+
+/* button interrupt */
+ISR(INT0_vect)
+{
+    debounce_count = 50;
 }
