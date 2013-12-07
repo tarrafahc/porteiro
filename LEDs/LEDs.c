@@ -168,8 +168,8 @@ void main()
         loop();
 }
 
-static uint8_t red   = 1;
-static uint8_t green = 0;
+static uint8_t painel_red   = 1;
+static uint8_t painel_green = 0;
 
 static uint16_t turnoff_count = 0;
 static uint8_t debounce_count = 0;
@@ -177,6 +177,23 @@ static uint8_t debounce_count = 0;
 /* main timer interrupt: F_CPU / (256 * 64) = 976.5625 Hz, 1.024 ms */
 ISR(TIMER0_OVF_vect)
 {
+    /* atualizar uma linha do painel */
+    static uint8_t i = 0;
+    desligar_bit(&_4094_str);
+    for (uint8_t j = 0; j < 50; j++)
+        clk_d(&_4094_clk, &_4094_d, ((out_buf[i][j>>3]>>(j&7))&1));
+    desligar_bit(&_4094_oe);
+    ligar_bit(&_4094_str);
+    for (uint8_t j = 0; j < 7; j++) {
+        clk_d(&_4015_clk, &_4015_d, (j==i)&painel_red  );
+        clk_d(&_4015_clk, &_4015_d, (j==i)&painel_green);
+    }
+    clk_d(&_4015_clk, &_4015_d, 0);
+    ligar_bit(&_4094_oe);
+    if (++i == 7)
+        i = 0;
+
+    /* conferir debounce do botão */
     if (debounce_count) {
         debounce_count--;
         if (!debounce_count && ler_bit(&botao)) {
@@ -198,6 +215,7 @@ ISR(TIMER0_OVF_vect)
     }
 
     if (!status) {
+        /* conferir tempo de desligamento */
         if (turnoff_count) {
             turnoff_count--;
             if (!turnoff_count) {
@@ -209,45 +227,31 @@ ISR(TIMER0_OVF_vect)
                 *led_b = 0;
             }
         }
-        return;
-    }
+    } else {
+        /* pseudo-mood lamp */
+        static uint8_t led_count = 0;
 
-    static uint8_t led_count = 0;
-
-    if (++led_count == 10) {
-        uint8_t old_r = *led_r;
-        uint8_t old_g = *led_g;
-        uint8_t old_b = *led_b;
-        if (old_r == cur_r && old_g == cur_g && old_b == cur_b) {
-            cur_r = cheap_rand();
-            cur_g = cheap_rand();
-            cur_b = cheap_rand();
+        if (++led_count == 10) {
+            uint8_t old_r = *led_r;
+            uint8_t old_g = *led_g;
+            uint8_t old_b = *led_b;
+            if (old_r == cur_r && old_g == cur_g && old_b == cur_b) {
+                cur_r = cheap_rand();
+                cur_g = cheap_rand();
+                cur_b = cheap_rand();
+            }
+            if (old_r > cur_r) *led_r -= 1; else if (old_r < cur_r) *led_r += 1;
+            if (old_g > cur_g) *led_g -= 1; else if (old_g < cur_g) *led_g += 1;
+            if (old_b > cur_b) *led_b -= 1; else if (old_b < cur_b) *led_b += 1;
+            led_count = 0;
         }
-        if (old_r > cur_r) *led_r -= 1; else if (old_r < cur_r) *led_r += 1;
-        if (old_g > cur_g) *led_g -= 1; else if (old_g < cur_g) *led_g += 1;
-        if (old_b > cur_b) *led_b -= 1; else if (old_b < cur_b) *led_b += 1;
-        led_count = 0;
     }
-
-    static uint8_t i = 0;
-    desligar_bit(&_4094_str);
-    for (uint8_t j = 0; j < 50; j++)
-        clk_d(&_4094_clk, &_4094_d, ((out_buf[i][j>>3]>>(j&7))&1));
-    desligar_bit(&_4094_oe);
-    ligar_bit(&_4094_str);
-    for (uint8_t j = 0; j < 7; j++) {
-        clk_d(&_4015_clk, &_4015_d, (j==i)&red  );
-        clk_d(&_4015_clk, &_4015_d, (j==i)&green);
-    }
-    clk_d(&_4015_clk, &_4015_d, 0);
-    ligar_bit(&_4094_oe);
-    if (++i == 7)
-        i = 0;
 }
 
 /* usart rx interrupt */
 ISR(USART_RX_vect)
 {
+    /* gravar caractere recebido na posição atual do buffer do painel */
     print_char(UDR0, out_idx++ * 5);
     if (out_idx == 10)
         out_idx = 0;
@@ -256,5 +260,6 @@ ISR(USART_RX_vect)
 /* button interrupt */
 ISR(INT0_vect)
 {
+    /* inicializar contagem de debounce */
     debounce_count = 50;
 }
