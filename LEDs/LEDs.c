@@ -34,6 +34,24 @@ static inline void clk_d       (const struct pino *clk, const struct pino *d, ui
     ligar_bit(clk);
 }
 
+static const struct pino pino_r = { &DDRB, &PORTB, 1 }; /* led vermelho      */
+static const struct pino pino_g = { &DDRB, &PORTB, 3 }; /* led verde         */
+static const struct pino pino_b = { &DDRB, &PORTB, 2 }; /* led azul          */
+static volatile uint8_t *led_r  = &OCR1AL;              /* led vermelho      */
+static volatile uint8_t *led_g  = &OCR2A ;              /* led verde         */
+static volatile uint8_t *led_b  = &OCR1BL;              /* led azul          */
+static uint8_t cur_r = 0;
+static uint8_t cur_g = 0;
+static uint8_t cur_b = 0;
+
+/* this is a cheap random number generator */
+static uint8_t cheap_rand(void)
+{
+    static uint16_t state;
+    state = state * 25173 + 13849;
+    return state>>7;
+}
+
 extern PROGMEM uint8_t fonte[0x100][7];
 
 static uint8_t out_buf[7][7] = {{0}}; /* [linha][50 bits] */
@@ -81,6 +99,20 @@ init_timer()
     TIMSK0 = (1 << TOIE0);              /* enable TIMER0_OVF interrupt */
 }
 
+static void
+init_pwm()
+{
+    /* pwm on arduino pins 9 and 10 */
+    /* phase-correct pwm, 8-bit, OC1A and OC1B */
+    TCCR1A = (1 << WGM10) | (1 << COM1A1) | (1 << COM1B1);
+    TCCR1B = (1 << CS10); /* prescaler = 1 */
+
+    /* pwm on arduino pin 11 */
+    /* phase-correct pwm, 8-bit, OC2A */
+    TCCR2A = (1 << WGM20) | (1 << COM2A1);
+    TCCR2B = (1 << CS20); /* prescaler = 1 */
+}
+
 static void loop()
 {
 }
@@ -90,6 +122,7 @@ void main()
 {
     init_serial();
     init_timer();
+    init_pwm();
     sei();  /* enable interrupts */
 
     set_output(&_4015_d  );
@@ -99,6 +132,10 @@ void main()
     set_output(&_4094_str);
     set_output(&_4094_d  );
     set_output(&_4094_oe );
+
+    set_output(&pino_r);
+    set_output(&pino_g);
+    set_output(&pino_b);
 
     desligar_bit(&_4015_mr);
     ligar_bit(&_4094_oe);
@@ -112,6 +149,23 @@ static uint8_t green = 0;
 /* main timer interrupt: F_CPU / (256 * 64) = 976.5625 Hz, 1.024 ms */
 ISR(TIMER0_OVF_vect)
 {
+    static uint8_t led_count = 0;
+
+    if (++led_count == 10) {
+        uint8_t old_r = *led_r;
+        uint8_t old_g = *led_g;
+        uint8_t old_b = *led_b;
+        if (old_r == cur_r && old_g == cur_g && old_b == cur_b) {
+            cur_r = cheap_rand();
+            cur_g = cheap_rand();
+            cur_b = cheap_rand();
+        }
+        if (old_r > cur_r) *led_r -= 1; else if (old_r < cur_r) *led_r += 1;
+        if (old_g > cur_g) *led_g -= 1; else if (old_g < cur_g) *led_g += 1;
+        if (old_b > cur_b) *led_b -= 1; else if (old_b < cur_b) *led_b += 1;
+        led_count = 0;
+    }
+
     static uint8_t i = 0;
     desligar_bit(&_4094_str);
     for (uint8_t j = 0; j < 50; j++)
