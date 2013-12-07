@@ -23,7 +23,7 @@ clean::
 	rm -f *~ $(PROG).hex $(PROG)_eeprom.hex $(PROG).elf $(PROG).o fonte.o
 
 upload: $(PROG).hex
-	avrdude -c arduino -p m328p -P /dev/ttyACM1 -b 115200 -u -U flash:w:$(PROG).hex
+	avrdude -c arduino -p m328p -P /dev/ttyUSB0 -b 57600 -u -U flash:w:$(PROG).hex
 
 upload_eeprom: $(PROG)_eeprom.hex
-	avrdude -c arduino -p m328p -P /dev/ttyACM1 -b 115200 -u -U eeprom:w:$(PROG)_eeprom.hex
+	avrdude -c arduino -p m328p -P /dev/ttyUSB0 -b 57600 -u -U eeprom:w:$(PROG)_eeprom.hex
