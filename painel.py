@@ -26,7 +26,7 @@ while True:
     ser.write("%02d/%02d/%4d" % (lt.tm_mday, lt.tm_mon, lt.tm_year))
     time.sleep(5)
 
-    url = 'http://api.openweathermap.org/data/2.5/weather?q=florianopolis'
-    temp = json.loads(urllib2.urlopen(url).read())['main']['temp']-273.15
-    ser.write("   %.4g C" % (temp))
-    time.sleep(5)
+#    url = 'http://api.openweathermap.org/data/2.5/weather?q=florianopolis'
+#    temp = json.loads(urllib2.urlopen(url).read())['main']['temp']-273.15
+#    ser.write("   %.4g C" % (temp))
+#    time.sleep(5)
