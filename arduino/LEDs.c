@@ -7,6 +7,7 @@
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
 #include <avr/eeprom.h>
+#include <avr/sleep.h>
 
 struct pino {
     volatile uint8_t *dir;
@@ -131,6 +132,12 @@ init_pwm()
 
 static void loop()
 {
+    /* no loop, just sleep =) */
+    set_sleep_mode(SLEEP_MODE_IDLE);
+    sleep_enable();
+    sleep_mode();
+    /* dormindo */
+    sleep_disable();
 }
 
 static uint8_t status_ee EEMEM = 0;
