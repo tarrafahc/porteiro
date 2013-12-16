@@ -133,7 +133,23 @@ static void loop()
 {
 }
 
+static uint8_t status_ee EEMEM = 0;
 static uint8_t status = 0;
+
+static void
+do_status(void)
+{
+    if (!status) {
+        desligar_bit(&botao_led);
+        *led_r = 255;
+        *led_g = 255;
+        *led_b = 255;
+    } else {
+        ligar_bit(&botao_led);
+        ligar_bit(&rele_1);
+        ligar_bit(&rele_2);
+    }
+}
 
 void main(void) __attribute__((noreturn));
 void main()
@@ -161,6 +177,9 @@ void main()
 
     set_output(&rele_1);
     set_output(&rele_2);
+
+    status = eeprom_read_byte(&status_ee);
+    do_status();
 
     desligar_bit(&_4015_mr);
     ligar_bit(&_4094_oe);
@@ -199,17 +218,10 @@ ISR(TIMER0_OVF_vect)
         if (!debounce_count && ler_bit(&botao)) {
             /* 51.2 ms debounce */
             status = !status;
-            if (!status) {
-                desligar_bit(&botao_led);
-                *led_r = 255;
-                *led_g = 255;
-                *led_b = 255;
+            do_status();
+            if (!status)
                 turnoff_count = 0xffff;
-            } else {
-                ligar_bit(&botao_led);
-                ligar_bit(&rele_1);
-                ligar_bit(&rele_2);
-            }
+            eeprom_write_byte(&status_ee, status);
             UDR0 = status + '0';
         }
     }
