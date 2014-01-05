@@ -23,8 +23,8 @@ def botao():
 # fazer o código dormir explicitamente.
 ser = serial.Serial('/dev/ttyUSB0', baudrate=9600, timeout=1)
 
-# Esperar 1 segundo caso o Arduino queira reiniciar.
-time.sleep(1)
+# Esperar 2 segundos caso o Arduino queira reiniciar.
+time.sleep(2)
 
 # Loop principal do painel.
 while True:
