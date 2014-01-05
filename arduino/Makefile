@@ -1,4 +1,4 @@
-PROG = LEDs
+PROG = porteiro
 
 all: $(PROG).hex
 
