@@ -6,17 +6,37 @@ import serial
 import json
 import time
 import os
+from twython import Twython
+
+f = open('twitter_keys', 'r')
+APPKEY = f.readline().rstrip('\n')
+APP_SECRET = f.readline().rstrip('\n')
+OAUTH_TOKEN =  f.readline().rstrip('\n')
+OAUTH_TOKEN_SECRET = f.readline().rstrip('\n')
+f.close()
+
+twitter = Twython(APPKEY, APP_SECRET, OAUTH_TOKEN, OAUTH_TOKEN_SECRET)
+
+def aberto():
+    print "Tarrafa is on"
+    #os.system("ssh -p 2022 tarrafahc@direct.tarrafa.net 1")
+    os.system("../botaobiarra/changeisgood.sh aberto")
+    twitter.update_status(status='[%02d/%02d/%4d %02d:%02d:%2d] O #tarrafa está aberto! :D' % (lt.tm_mday, lt.tm_mon, lt.tm_year, lt.tm_hour, lt.tm_min, lt.tm_sec ))
+
+def fechado():
+    print "Tarrafa is off"
+    #os.system("ssh -p 2022 tarrafahc@direct.tarrafa.net 0")
+    os.system("../botaobiarra/changeisgood.sh fechado")
+    twitter.update_status(status='[%02d/%02d/%4d %02d:%02d:%2d] O #tarrafa está fechado. :(' % (lt.tm_mday, lt.tm_mon, lt.tm_year, lt.tm_hour, lt.tm_min, lt.tm_sec ))
 
 # Lê um byte da serial pelo Arduino. Se tiver algum dado, atualiza o servidor.
 def botao():
     bytes = ser.read(1)
     if bytes:
         if   bytes is '1':
-            print "Tarrafa is on"
-            os.system("ssh -i botao-tarrafa tarrafahc@tarrafa.net 1")
+            aberto()
         elif bytes is '0':
-            print "Tarrafa is off"
-            os.system("ssh -i botao-tarrafa tarrafahc@tarrafa.net 0")
+            fechado()
 
 # Abrir a porta serial do Arduino em 9600 baud com tempo de espera de 1
 # segundo. O tempo de espera é usado na função de leitura para não precisar
